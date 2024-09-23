@@ -23,7 +23,7 @@ namespace Confront.Physics
         [SerializeField]
         private float _abyssCheckDistance = 1.2f;
 
-        public GroundSensorResult CheckGround(Vector2 position, Vector2 direction)
+        public GroundSensorResult CheckGround(Vector2 position, Vector2 direction, float slopeLimit)
         {
             var result = new GroundSensorResult();
 
@@ -39,14 +39,15 @@ namespace Confront.Physics
             {
                 result.GroundNormal = groundHit.normal;
                 result.GroundPoint = groundHit.point;
+                result.IsOverSlope = Vector3.Angle(Vector3.up, groundHit.normal) > slopeLimit;
             }
 
             return result;
         }
 
-        public void DrawGizmos(Vector2 position, Vector2 direction)
+        public void DrawGizmos(Vector2 position, Vector2 direction, float slopeLimit)
         {
-            var result = CheckGround(position, direction);
+            var result = CheckGround(position, direction, slopeLimit);
 
             if (result.IsGrounded) Gizmos.color = new Color(1, 0, 0, 0.5f);
             else Gizmos.color = new Color(0, 1, 0, 0.5f);
@@ -62,6 +63,7 @@ namespace Confront.Physics
     {
         public bool IsGrounded;
         public bool IsAbyss;
+        public bool IsOverSlope;
         public Vector2 GroundNormal;
         public Vector2 GroundPoint;
     }

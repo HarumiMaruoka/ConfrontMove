@@ -9,15 +9,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 55a0f2e1bcfa091458527989a6f1f5fb, type: 3}
+  m_Script: {fileID: 11500000, guid: 7023d8f625a65154ba10650abd96fa27, type: 3}
   m_Name: GroundSensor
   m_EditorClassIdentifier: 
   _groundLayer:
     serializedVersion: 2
     m_Bits: 1
   _groundCheckSphereRadius: 0.5
-  _groundCheckSphereOffset: {x: 0, y: 1}
-  _groundCheckDistance: 1.75
-  _abyssCheckSphereOffset: {x: 0, y: 1}
+  _groundCheckSphereOffset: {x: 0, y: -0.45}
+  _groundCheckDistance: 0.3
+  _abyssCheckSphereOffset: {x: 0, y: -0.45}
   _abyssCheckSphereRadius: 0.1
-  _abyssCheckDistance: 3
+  _abyssCheckDistance: 1.25

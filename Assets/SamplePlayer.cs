@@ -12,7 +12,18 @@ public class SamplePlayer : MonoBehaviour
     private CharacterController _controller;
     private MovementSystem _movementSystem;
 
+    public float _jumpForce = 10f;
+
     public Vector2 Velocity => _movementSystem.Velocity;
+    public GroundSensorResult GroundSensorResult => _groundSensor.CheckGround(transform.position, Vector2.down, _controller.slopeLimit);
+    public Vector2 DownhillVector
+    {
+        get
+        {
+            var normal = GroundSensorResult.GroundNormal;
+            return Vector3.Cross(Vector3.Cross(Vector3.up, normal), normal).normalized;
+        }
+    }
 
     private void Start()
     {
@@ -25,27 +36,38 @@ public class SamplePlayer : MonoBehaviour
         var xInput = Input.GetAxisRaw("Horizontal");
         _movementSystem.Update(xInput);
 
-        var jumpForce = 10f;
-        var jumpInput = Input.GetButtonDown("Jump");
-        if (jumpInput)
-            _movementSystem.Jump(jumpForce);
+        if (Input.GetButtonDown("Jump")) _movementSystem.Jump(_jumpForce);
     }
 
     private void OnDrawGizmos()
     {
-        if (_groundSensor) _groundSensor.DrawGizmos(transform.position, Vector2.down);
+        if (_controller == null) _controller = GetComponent<CharacterController>();
+        if (_groundSensor) _groundSensor.DrawGizmos(transform.position, Vector2.down, _controller.slopeLimit);
     }
-    private GUIStyle labelStyle;
+
+    private GUIStyle _labelStyle;
+    private GUIStyle _buttonStyle;
+
     private void OnGUI()
     {
-        // GUIStyleÇÃèâä˙âª
-        if (labelStyle == null)
+        if (_labelStyle == null)
         {
-            labelStyle = new GUIStyle();
-            labelStyle.fontSize = 64;
-            labelStyle.normal.textColor = Color.white;
+            _labelStyle = new GUIStyle();
+            _labelStyle.fontSize = 40;
+            _labelStyle.normal.textColor = Color.white;
         }
-        GUI.Label(new Rect(10, 10, 200, 20), $"Velocity: {Velocity.x:F2}, {Velocity.y:F2}", labelStyle);
+        GUILayout.Label($"Velocity: {Velocity.x: 000.00;-000.00; 000.00}, {Velocity.y: 000.00;-000.00; 000.00}", _labelStyle);
+        GUILayout.Label($"DownhillVector: {DownhillVector.x:00.00}, {DownhillVector.y:00.00}", _labelStyle);
+
+        if (_buttonStyle == null)
+        {
+            _buttonStyle = new GUIStyle(GUI.skin.button);
+            _buttonStyle.fontSize = 40;
+        }
+        if (GUILayout.Button("Speed 0.1", _buttonStyle)) Time.timeScale = 0.1f;
+        if (GUILayout.Button("Speed 0.5", _buttonStyle)) Time.timeScale = 0.5f;
+        if (GUILayout.Button("Speed 1", _buttonStyle)) Time.timeScale = 1;
+        if (GUILayout.Button("Speed 2", _buttonStyle)) Time.timeScale = 2;
     }
 }
 
@@ -62,32 +84,39 @@ public class SamplePlayerEditor : UnityEditor.Editor
         base.OnInspectorGUI();
 
         var player = target as SamplePlayer;
+        if (player == null) return;
 
-        var serializedObject = new UnityEditor.SerializedObject(player._movementSettings);
-
-        if (_showMovementSettings = UnityEditor.EditorGUILayout.Foldout(_showMovementSettings, "Show Movement Settings"))
+        if (player._movementSettings != null)
         {
-            serializedObject.Update();
-            var iterator = serializedObject.GetIterator();
-            iterator.NextVisible(true);
-            while (iterator.NextVisible(false))
+            var serializedObject = new UnityEditor.SerializedObject(player._movementSettings);
+
+            if (_showMovementSettings = UnityEditor.EditorGUILayout.Foldout(_showMovementSettings, "Movement Settings"))
             {
-                UnityEditor.EditorGUILayout.PropertyField(iterator);
+                serializedObject.Update();
+                var iterator = serializedObject.GetIterator();
+                iterator.NextVisible(true);
+                while (iterator.NextVisible(false))
+                {
+                    UnityEditor.EditorGUILayout.PropertyField(iterator);
+                }
+                serializedObject.ApplyModifiedProperties();
             }
-            serializedObject.ApplyModifiedProperties();
         }
 
-        if (_showGroundSensor = UnityEditor.EditorGUILayout.Foldout(_showGroundSensor, "Show Ground Sensor"))
+        if (player._groundSensor != null)
         {
-            serializedObject = new UnityEditor.SerializedObject(player._groundSensor);
-            serializedObject.Update();
-            var iterator = serializedObject.GetIterator();
-            iterator.NextVisible(true);
-            while (iterator.NextVisible(false))
+            if (_showGroundSensor = UnityEditor.EditorGUILayout.Foldout(_showGroundSensor, "Ground Sensor"))
             {
-                UnityEditor.EditorGUILayout.PropertyField(iterator);
+                var serializedObject = new UnityEditor.SerializedObject(player._groundSensor);
+                serializedObject.Update();
+                var iterator = serializedObject.GetIterator();
+                iterator.NextVisible(true);
+                while (iterator.NextVisible(false))
+                {
+                    UnityEditor.EditorGUILayout.PropertyField(iterator);
+                }
+                serializedObject.ApplyModifiedProperties();
             }
-            serializedObject.ApplyModifiedProperties();
         }
     }
 }
