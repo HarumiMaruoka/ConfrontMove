@@ -15,10 +15,13 @@ namespace Confront.Physics
 
         public float _jumpTimeoutDelta;
 
+        public float _abyssGravity;
+
         public float _slopeAcceleration;
         public float _slopeDeceleration;
 
-        public float _slopeMinSpeed;
-        public float _slopeMaxSpeed;
+        public float _inAirAcceleration;
+        public float _inAirDeceleration;
+        public float _inAirMaxSpeed;
     }
 }

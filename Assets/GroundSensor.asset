@@ -19,5 +19,5 @@ MonoBehaviour:
   _groundCheckSphereOffset: {x: 0, y: -0.45}
   _groundCheckDistance: 0.3
   _abyssCheckSphereOffset: {x: 0, y: -0.45}
-  _abyssCheckSphereRadius: 0.1
+  _abyssCheckSphereRadius: 0.08
   _abyssCheckDistance: 1.25

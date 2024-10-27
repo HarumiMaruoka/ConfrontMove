@@ -33,10 +33,12 @@ public class SamplePlayer : MonoBehaviour
 
     private void Update()
     {
-        var xInput = Input.GetAxisRaw("Horizontal");
-        _movementSystem.Update(xInput);
-
-        if (Input.GetButtonDown("Jump")) _movementSystem.Jump(_jumpForce);
+        var input = new PlayerInput
+        {
+            LeftStick = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")),
+            Jump = Input.GetButtonDown("Jump") ? _jumpForce : null,
+        };
+        _movementSystem.Update(input);
     }
 
     private void OnDrawGizmos()
@@ -58,6 +60,7 @@ public class SamplePlayer : MonoBehaviour
         }
         GUILayout.Label($"Velocity: {Velocity.x: 000.00;-000.00; 000.00}, {Velocity.y: 000.00;-000.00; 000.00}", _labelStyle);
         GUILayout.Label($"DownhillVector: {DownhillVector.x:00.00}, {DownhillVector.y:00.00}", _labelStyle);
+        GUILayout.Label($"GroundState: {GroundSensorResult.GroundState}", _labelStyle);
 
         if (_buttonStyle == null)
         {

@@ -13,12 +13,14 @@ MonoBehaviour:
   m_Name: MovementSettings
   m_EditorClassIdentifier: 
   _acceleration: 2
-  _deceleration: 4
-  _turnDeceleration: 8
+  _deceleration: 15
+  _turnDeceleration: 20
   _maxSpeed: 14
   _gravity: 64
   _jumpTimeoutDelta: 0.2
+  _abyssGravity: 10
   _slopeAcceleration: 40
   _slopeDeceleration: 20
-  _slopeMinSpeed: 8
-  _slopeMaxSpeed: 80
+  _inAirAcceleration: 10
+  _inAirDeceleration: 10
+  _inAirMaxSpeed: 10

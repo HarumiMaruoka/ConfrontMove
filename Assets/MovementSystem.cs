@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
 
-
 namespace Confront.Physics
 {
     public class MovementSystem
@@ -12,20 +11,15 @@ namespace Confront.Physics
 
         private GroundSensorResult _groundSensorResult;
 
-        private float _xSpeed;
-        private Vector2 _xSpeed2;
-
-        private float _ySpeed;
-
-        private float _slopeSpeed;
-        private Vector2 _slopeSpeed2;
-
         private Vector3 _velocity;
 
         private float? _jumpForce = null;
         private float _jumpTimeout = 0f;
 
-        public Vector2 Velocity => new Vector2(_velocity.x, _velocity.y);
+        private GroundState _previousGroundState;
+        private GroundState _groundState;
+
+        public Vector3 Velocity => _velocity;
 
         public MovementSystem(CharacterController controller, MovementSettings settings, GroundSensor groundSensor)
         {
@@ -40,107 +34,147 @@ namespace Confront.Physics
             _jumpTimeout = _settings._jumpTimeoutDelta;
         }
 
-        public void Update(float xInput)
+        private PlayerInput _input;
+
+        public void Update(PlayerInput input)
         {
+            _input = input;
             _jumpTimeout -= Time.deltaTime;
             _groundSensorResult = _groundSensor.CheckGround(_controller.transform.position, Vector2.down, _controller.slopeLimit);
+            _previousGroundState = _groundState;
+            _groundState = _groundSensorResult.GroundState;
 
-            CaluculateHorizontal(xInput);
-            CalculateVertical();
-            CaluculateSlope();
+            UpdateVelocity();
             ApplyVelocity();
         }
 
-        private void CaluculateHorizontal(float xInput)
+        private void UpdateVelocity()
         {
+            switch (_groundState)
+            {
+                case GroundState.Grounded:
+                    UpdateGroundedVelocity();
+                    break;
+                case GroundState.Abyss:
+                    UpdateAbyssVelocity();
+                    break;
+                case GroundState.SteepSlope:
+                    UpdateSteepSlopeVelocity();
+                    break;
+                case GroundState.InAir:
+                    UpdateInAirVelocity();
+                    break;
+            }
+        }
+
+        private float CalculateDirection(float direction)
+        {
+            if (Mathf.Abs(direction) < 0.01f) return 0;
+            return Mathf.Sign(direction);
+        }
+
+        private void UpdateGroundedVelocity()
+        {
+            if (_previousGroundState == GroundState.InAir)
+            {
+                _velocity.y = 0f;
+            }
+
+            // 入力に応じてx速度を更新する。
             var acceleration = _settings._acceleration;
             var deceleration = _settings._deceleration;
-            var turnDeceleration = _settings._turnDeceleration;
-            var maxSpeed = _settings._maxSpeed;
+            var inputDirection = CalculateDirection(_input.LeftStick.x);
 
-            var isGrounded = _groundSensorResult.IsGrounded;
-            var isAbyss = _groundSensorResult.IsAbyss;
-            var isOverSlope = _groundSensorResult.IsOverSlope;
+            var isInputZero = inputDirection == 0f;
+            var isTurning = IsTurning(inputDirection);
+            var velocitySign = Mathf.Sign(_velocity.x);
 
-            var isInputZero = Mathf.Abs(xInput) < 0.1f;
-            var inputDir = Mathf.Abs(xInput) < 0.1f ? 0f : Mathf.Sign(xInput);
-            var isTurnning = xInput > 0.1f && _xSpeed < -0.1f || xInput < -0.1f && _xSpeed > 0.1f;
+            float velocity = _velocity.magnitude * velocitySign;
 
-            if (isTurnning)
+            if (isInputZero)
             {
-                _xSpeed = Mathf.MoveTowards(_xSpeed, 0f, turnDeceleration * Time.deltaTime);
+                velocity = Mathf.Lerp(velocity, 0f, deceleration * Time.deltaTime);
             }
-            if (isInputZero || isOverSlope)
+            else if (isTurning)
             {
-                _xSpeed = Mathf.MoveTowards(_xSpeed, 0f, deceleration * Time.deltaTime);
+                velocity = Mathf.Lerp(velocity, 0f, _settings._turnDeceleration * Time.deltaTime);
             }
             else
             {
-                _xSpeed = Mathf.MoveTowards(_xSpeed, inputDir, acceleration * Time.deltaTime);
+                velocity = Mathf.Lerp(velocity, _settings._maxSpeed * inputDirection, acceleration * Time.deltaTime);
             }
 
-            var normal = _groundSensorResult.GroundNormal;
-            _slopeSpeed2 = Vector3.Cross(Vector3.Cross(Vector3.up, normal), normal).normalized;
-            if (isGrounded && !isOverSlope && !isAbyss)
-            {
-                var groundNormal = _groundSensorResult.GroundNormal;
-                _xSpeed2 = Vector3.ProjectOnPlane(new Vector3(_xSpeed, 0f), groundNormal).normalized * Mathf.Abs(_xSpeed) * maxSpeed;
-            }
-            else
-            {
-                _xSpeed2 = new Vector2(_xSpeed * maxSpeed, 0f);
-            }
+            var groundNormal = _groundSensorResult.GroundNormal;
+            _velocity = Vector3.ProjectOnPlane(new Vector3(velocity, 0f), groundNormal).normalized * Mathf.Abs(velocity);
         }
 
-        private bool _lastGrounded;
-
-        private void CalculateVertical()
+        private bool IsTurning(float inputDirection)
         {
-            var isGrounded = _groundSensorResult.IsGrounded;
-            var isOverSlope = _groundSensorResult.IsOverSlope;
-
-            if (_jumpForce != null)
-            {
-                _ySpeed = _jumpForce.Value;
-                _jumpForce = null;
-            }
-            else if (_lastGrounded && !isGrounded && _jumpTimeout < 0f)
-            {
-                _ySpeed = -_slopeSpeed;
-            }
-            else if (!isGrounded)
-            {
-                _ySpeed -= _settings._gravity * Time.deltaTime;
-            }
-
-            _lastGrounded = isGrounded;
+            return (inputDirection > 0.1f && _velocity.x < -0.1f) || (inputDirection < -0.1f && _velocity.x > 0.1f);
         }
 
-        private void CaluculateSlope()
+        private void UpdateAbyssVelocity()
         {
-            if (_velocity.y > 0f) return;
+            // ななめ移動（崖から滑落する。）
+            // もし、x軸方向の速度が滑落側と反対方向の場合、x軸方向の速度をゼロにする。
+            var fallDirection = Mathf.Sign(_groundSensorResult.GroundNormal.x);
+            var velocityDirection = Mathf.Sign(_velocity.x);
+            var acceleration = _settings._abyssGravity;
 
-            var isGrounded = _groundSensorResult.IsGrounded;
-            var isOverSlope = _groundSensorResult.IsOverSlope;
-            var isAbyss = _groundSensorResult.IsAbyss;
-
-            var normal = _groundSensorResult.GroundNormal;
-            var downhillVector = Vector3.Cross(Vector3.Cross(Vector3.up, normal), normal).normalized;
-
-            if (isGrounded && isOverSlope || isAbyss)
+            var velocity = _velocity.magnitude;
+            if (fallDirection != velocityDirection)
             {
-                _slopeSpeed += _settings._slopeAcceleration * Time.deltaTime;
-                _slopeSpeed = Mathf.Clamp(_slopeSpeed, _settings._slopeMinSpeed, _settings._slopeMaxSpeed);
+                _velocity.x = 0f;
+            }
+
+            _velocity += new Vector3(fallDirection, -1f) * acceleration * Time.deltaTime;
+        }
+
+        private void UpdateSteepSlopeVelocity()
+        {
+            // 斜面の角度に合わせて滑落する。
+            // もし、前フレームで落下していた場合、落下速度を維持する。
+            var groundNormal = _groundSensorResult.GroundNormal;
+            var downhillDirection = Vector3.Cross(Vector3.Cross(Vector3.up, groundNormal), groundNormal).normalized;
+            var acceleration = _settings._slopeAcceleration;
+
+            if (_previousGroundState != GroundState.SteepSlope)
+            {
+                var _fallSpeed = _velocity.y;
+                _velocity = downhillDirection * _fallSpeed;
+            }
+
+            var velocity = _velocity.magnitude;
+            velocity += acceleration * Time.deltaTime;
+            _velocity = downhillDirection * velocity;
+        }
+
+        private void UpdateInAirVelocity()
+        {
+            // 空中での移動。
+            // 重力を適用する。
+            // 入力に応じて横移動を行う。
+            var acceleration = _settings._inAirAcceleration;
+            var deceleration = _settings._inAirDeceleration;
+            var maxSpeed = _settings._inAirMaxSpeed;
+            var gravity = _settings._gravity;
+            var isInputZero = Mathf.Abs(_input.LeftStick.x) < 0.01f;
+
+            if (isInputZero)
+            {
+                _velocity.x = Mathf.MoveTowards(_velocity.x, 0f, deceleration * Time.deltaTime);
             }
             else
             {
-                _slopeSpeed = 0f;
+                var inputDirection = Mathf.Sign(_input.LeftStick.x);
+                _velocity.x = Mathf.MoveTowards(_velocity.x, maxSpeed * inputDirection, acceleration * Time.deltaTime);
             }
+
+            _velocity.y -= gravity * Time.deltaTime;
         }
 
         private void ApplyVelocity()
         {
-            _velocity = _xSpeed2 + new Vector2(0f, _ySpeed) + _slopeSpeed2 * _slopeSpeed;
             _controller.Move(_velocity * Time.deltaTime);
         }
     }

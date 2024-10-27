@@ -38,9 +38,13 @@ namespace Confront.Physics
             if (result.IsGrounded)
             {
                 result.GroundNormal = groundHit.normal;
-                result.GroundPoint = groundHit.point;
-                result.IsOverSlope = Vector3.Angle(Vector3.up, groundHit.normal) > slopeLimit;
+                result.IsSteepSlope = Vector3.Angle(Vector3.up, groundHit.normal) > slopeLimit;
             }
+
+            result.GroundState = GroundState.InAir;
+            if (result.IsGrounded) result.GroundState = GroundState.Grounded;
+            if (result.IsAbyss && result.IsGrounded) result.GroundState = GroundState.Abyss;
+            if (result.IsSteepSlope) result.GroundState = GroundState.SteepSlope;
 
             return result;
         }
@@ -61,10 +65,24 @@ namespace Confront.Physics
 
     public struct GroundSensorResult
     {
-        public bool IsGrounded;
-        public bool IsAbyss;
-        public bool IsOverSlope;
+        public bool IsGrounded; // ’n–Ê
+        public bool IsAbyss; // ŠR
+        public bool IsSteepSlope; // ‹}ŽÎ–Ê
+        public GroundState GroundState;
         public Vector2 GroundNormal;
-        public Vector2 GroundPoint;
+    }
+
+    public enum GroundState
+    {
+        Grounded,
+        InAir,
+        Abyss,
+        SteepSlope,
+    }
+
+    public struct PlayerInput
+    {
+        public Vector2 LeftStick;
+        public float? Jump;
     }
 }
